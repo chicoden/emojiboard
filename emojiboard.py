@@ -1,33 +1,23 @@
 import discord
 from discord.ext import tasks
+from mysql.connector.aio import connect
 import asyncio
 import datetime
 import re
-import os
-from dotenv import load_dotenv
+from config import *
 
-load_dotenv()
-DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-EMO_DB_MYSQL_USERNAME = os.getenv("EMO_DB_MYSQL_USERNAME")
-EMO_DB_MYSQL_PASSWORD = os.getenv("EMO_DB_MYSQL_PASSWORD")
-
-intents = discord.Intents.default()
-intents.members = True
-intents.presences = True
-intents.typing = True
-intents.messages = True
-intents.message_content = True
-intents.polls = True
-intents.reactions = True
-
-client = discord.Client(intents=intents)
+client = discord.Client(intents=discord.Intents.all())
 tree = discord.app_commands.CommandTree(client)
+
+class BotEmoji:
+    KEKW = "<:kekw:1311365036660363378>"
+    KEKKED_SADGE = "<:kekked_sadge:1439802912745197670>"
 
 @tree.command(name="saykekw", description="Say kekw")
 async def say_kekw(interaction):
     async with interaction.channel.typing():
         await asyncio.sleep(2)
-        await interaction.response.send_message("<:kekw:1311365036660363378>")
+        await interaction.response.send_message(BotEmoji.KEKW)
 
 vowels = re.compile("[aeiouAEIOU]+")
 @tree.command(name="mask_vowels", description="Hides vowels")
@@ -70,7 +60,7 @@ async def task_make_leaderboard():
             await winner.forward(emojiboard_channel)
 
         else:
-            await emojiboard_channel.send("No winners <:kekked_sadge:1439802912745197670>")
+            await emojiboard_channel.send(f"No winners {BotEmoji.KEKKED_SADGE}")
 
 @client.event
 async def on_ready():
