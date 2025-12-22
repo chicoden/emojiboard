@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+EMO_DB_MYSQL_USERNAME = os.getenv("EMO_DB_MYSQL_USERNAME")
+EMO_DB_MYSQL_PASSWORD = os.getenv("EMO_DB_MYSQL_PASSWORD")
 
 intents = discord.Intents.default()
 intents.members = True
@@ -70,15 +72,8 @@ async def task_make_leaderboard():
         else:
             await emojiboard_channel.send("No winners <:kekked_sadge:1439802912745197670>")
 
-#@client.event
-#async def on_typing(channel, user, when):
-#    await channel.send("dont")
-
 @client.event
 async def on_ready():
-    #tree.clear_commands(guild=None)
-    #await tree.sync()
-
     if not task_make_leaderboard.is_running():
         task_make_leaderboard.start()
 
