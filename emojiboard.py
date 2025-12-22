@@ -26,15 +26,6 @@ class BotEmoji:
     KEKW = "<:kekw:1311365036660363378>"
     KEKKED_SADGE = "<:kekked_sadge:1439802912745197670>"
 
-async def fetch_tracked_emoji_for_server(guild_id: int):
-    try:
-        async with await mysql.connector.aio.connect(**EMO_DB_CONFIG) as db:
-            return ["foo", "bar", "baz"]
-
-    except mysql.connector.errors.Error as error:
-        log.error(f"{EMO_DB_CONFIG["database"]}: connection failed. {error}")
-        return None
-
 @tree.command(name="saykekw", description="Say kekw")
 async def say_kekw(interaction: discord.Interaction):
     async with interaction.channel.typing():
@@ -49,52 +40,48 @@ async def mask_vowels(interaction: discord.Interaction, message: str):
     )
 
 @tasks.loop(hours=24)
-async def task_make_leaderboard():
-    start_timestamp = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=24)
-    for guild in client.guilds:
-        bot_member = guild.get_member(client.user.id)
+async def task_post_leaderboard():
+    try:
+        async with await mysql.connector.aio.connect(**EMO_DB_CONFIG) as db:
+            log.debug("connected!")
 
-        emojiboard_channel = discord.utils.get(guild.text_channels, name="emojiboard")
-        if emojiboard_channel is None:
-            log.info(f"creating topic channel for guild {guild.name}")
-            emojiboard_channel = await guild.create_text_channel(name="emojiboard", topic="Dedicated emojiboard channel")
+    except mysql.connector.errors.Error as error:
+        log.error(f"{EMO_DB_CONFIG["database"]}: connection failed. {error}")
 
-        winner = None
-        winning_score = 0
-        for channel in guild.text_channels:
-            channel_permissions = channel.permissions_for(bot_member)
-            if not channel_permissions.read_message_history:
-                continue
-
-            async for message in channel.history(after=start_timestamp):
-                score = 0
-                for reaction in message.reactions:
-                    emoji = reaction.emoji
-                    if type(emoji) is discord.Emoji and emoji.name.lower() == "kekw":
-                        score = max(score, reaction.count)
-
-                if score > 0 and score >= winning_score:
-                    winner = message
-                    winning_score = score
-
-        if winner is not None:
-            await emojiboard_channel.send(f"{winner.author.mention} wins with {winning_score} kekw reactions")
-            await winner.forward(emojiboard_channel)
-
-        else:
-            await emojiboard_channel.send(f"No winners {BotEmoji.KEKKED_SADGE}")
+# @tasks.loop(hours=24)
+# async def task_make_leaderboard():
+#     start_timestamp = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=24)
+#     for guild in client.guilds:
+#         bot_member = guild.get_member(client.user.id)
+#         emojiboard_channel = discord.utils.get(guild.text_channels, name="emojiboard")
+#         if emojiboard_channel is None:
+#             log.info(f"creating topic channel for guild {guild.name}")
+#             emojiboard_channel = await guild.create_text_channel(name="emojiboard", topic="Dedicated emojiboard channel")
+#         winner = None
+#         winning_score = 0
+#         for channel in guild.text_channels:
+#             channel_permissions = channel.permissions_for(bot_member)
+#             if not channel_permissions.read_message_history:
+#                 continue
+#             async for message in channel.history(after=start_timestamp):
+#                 score = 0
+#                 for reaction in message.reactions:
+#                     emoji = reaction.emoji
+#                     if type(emoji) is discord.Emoji and emoji.name.lower() == "kekw":
+#                         score = max(score, reaction.count)
+#                 if score > 0 and score >= winning_score:
+#                     winner = message
+#                     winning_score = score
+#         if winner is not None:
+#             await emojiboard_channel.send(f"{winner.author.mention} wins with {winning_score} kekw reactions")
+#             await winner.forward(emojiboard_channel)
+#         else:
+#             await emojiboard_channel.send(f"No winners {BotEmoji.KEKKED_SADGE}")
 
 @client.event
 async def on_ready():
-    if not task_make_leaderboard.is_running():
-        #task_make_leaderboard.start()
-        pass
-
-    for guild in client.guilds:###
-        tracked_emoji = await fetch_tracked_emoji_for_server(guild.id)
-        if tracked_emoji is None:
-            continue
-        log.debug(", ".join(tracked_emoji))
+    if not task_post_leaderboard.is_running(): # avoid starting an already running task (yes, this can happen, and it raises an exception)
+        task_post_leaderboard.start()
 
     log.info("ready")
 
