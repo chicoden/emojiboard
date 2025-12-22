@@ -9,7 +9,7 @@ import re
 from config import *
 
 log = logging.getLogger("emojiboard")
-log.setLevel(logging.INFO)
+log.setLevel(logging.DEBUG)
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s"))
 log.addHandler(handler)
