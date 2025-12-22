@@ -1,10 +1,18 @@
 import discord
 from discord.ext import tasks
-from mysql.connector.aio import connect
+import mysql.connector.aio
+import mysql.connector.errors
 import asyncio
 import datetime
+import logging
 import re
 from config import *
+
+log = logging.getLogger("emojiboard")
+log.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s"))
+log.addHandler(handler)
 
 client = discord.Client(intents=discord.Intents.all())
 tree = discord.app_commands.CommandTree(client)
@@ -14,14 +22,14 @@ class BotEmoji:
     KEKKED_SADGE = "<:kekked_sadge:1439802912745197670>"
 
 @tree.command(name="saykekw", description="Say kekw")
-async def say_kekw(interaction):
+async def say_kekw(interaction: discord.Interaction):
     async with interaction.channel.typing():
         await asyncio.sleep(2)
         await interaction.response.send_message(BotEmoji.KEKW)
 
 vowels = re.compile("[aeiouAEIOU]+")
 @tree.command(name="mask_vowels", description="Hides vowels")
-async def mask_vowels(interaction, message: str):
+async def mask_vowels(interaction: discord.Interaction, message: str):
     await interaction.response.send_message(
         vowels.sub(lambda match: f"||{match.group()}||", message)
     )
@@ -34,7 +42,7 @@ async def task_make_leaderboard():
 
         emojiboard_channel = discord.utils.get(guild.text_channels, name="emojiboard")
         if emojiboard_channel is None:
-            print(f"Creating topic channel for guild {guild.name}")
+            log.info(f"creating topic channel for guild {guild.name}")
             emojiboard_channel = await guild.create_text_channel(name="emojiboard", topic="Dedicated emojiboard channel")
 
         winner = None
@@ -67,6 +75,6 @@ async def on_ready():
     if not task_make_leaderboard.is_running():
         task_make_leaderboard.start()
 
-    print("Ready")
+    log.info("ready")
 
 client.run(DISCORD_BOT_TOKEN)
