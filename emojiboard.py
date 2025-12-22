@@ -10,8 +10,13 @@ from config import *
 
 log = logging.getLogger("emojiboard")
 log.setLevel(logging.DEBUG)
+formatter = logging.Formatter(
+    fmt="[%(asctime)s] [%(levelname)-8s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
 handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s"))
+handler.setFormatter(formatter)
 log.addHandler(handler)
 
 client = discord.Client(intents=discord.Intents.all())
