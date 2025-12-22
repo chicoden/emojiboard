@@ -21,6 +21,15 @@ class BotEmoji:
     KEKW = "<:kekw:1311365036660363378>"
     KEKKED_SADGE = "<:kekked_sadge:1439802912745197670>"
 
+async def fetch_tracked_emoji_for_server(guild_id: int):
+    try:
+        async with await mysql.connector.aio.connect(**EMO_DB_CONFIG) as db:
+            return ["foo", "bar", "baz"]
+
+    except mysql.connector.errors.Error as error:
+        log.error(f"{EMO_DB_CONFIG["database"]}: connection failed. {error}")
+        return None
+
 @tree.command(name="saykekw", description="Say kekw")
 async def say_kekw(interaction: discord.Interaction):
     async with interaction.channel.typing():
@@ -73,7 +82,14 @@ async def task_make_leaderboard():
 @client.event
 async def on_ready():
     if not task_make_leaderboard.is_running():
-        task_make_leaderboard.start()
+        #task_make_leaderboard.start()
+        pass
+
+    for guild in client.guilds:###
+        tracked_emoji = await fetch_tracked_emoji_for_server(guild.id)
+        if tracked_emoji is None:
+            continue
+        log.debug(", ".join(tracked_emoji))
 
     log.info("ready")
 
