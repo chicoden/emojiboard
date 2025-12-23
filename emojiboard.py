@@ -56,7 +56,7 @@ async def task_post_leaderboards():
                     await db.cursor() as emoji_cursor
                 ):
                     await guild_cursor.execute("SELECT guild_id, is_tracked FROM guilds")
-                    async for _, (guild_id, is_tracked) in guild_cursor.fetchsets():
+                    for guild_id, is_tracked in await guild_cursor.fetchall():
                         guild = client.get_guild(guild_id)
                         if guild is None:
                             # purge from database?
