@@ -6,8 +6,10 @@ import asyncio
 import datetime
 import logging
 import re
-import typing
+from typing import *
 from config import *
+
+type EmojiDescriptor = Tuple[bool, int, str]
 
 log = logging.getLogger("emojiboard")
 log.setLevel(logging.DEBUG)
@@ -27,8 +29,8 @@ class BotEmoji:
     KEKW = "<:kekw:1311365036660363378>"
     KEKKED_SADGE = "<:kekked_sadge:1439802912745197670>"
 
-async def post_leaderboard(guild: discord.Guild, tracked_emoji: typing.Any, start_timestamp: datetime.datetime):
-    log.debug(f"posting leaderboard to guild {guild.name}")
+async def post_leaderboard(guild: discord.Guild, tracked_emoji: List[EmojiDescriptor], start_timestamp: datetime.datetime):
+    log.debug(f"posting leaderboard in guild {guild.name}")
 
 @tree.command(name="saykekw", description="Say kekw")
 async def say_kekw(interaction: discord.Interaction):
@@ -61,10 +63,13 @@ async def task_post_leaderboards():
                             continue
 
                         if is_tracked:
-                            #await emoji_cursor.execute("SELECT emoji_id FROM tracked_emoji WHERE guild_id = %i", (guild_id,))
-                            #tracked_emoji = await emoji_cursor.fetchall()
-                            #per_guild.create_task(post_leaderboard(guild, tracked_emoji, start_timestamp))
-                            pass
+                            await emoji_cursor.execute('''
+                                SELECT emoji.is_default, emoji.emoji_id, emoji.emoji_name FROM emoji
+                                    INNER JOIN tracked_emoji ON tracked_emoji.emoji_index = emoji.emoji_index
+                                    WHERE tracked_emoji.guild_id = %i;
+                            ''', (guild_id,))
+                            tracked_emoji = await emoji_cursor.fetchall()
+                            per_guild.create_task(post_leaderboard(guild, tracked_emoji, start_timestamp))
 
     except mysql.connector.errors.Error as error:
         log.error(f"{EMO_DB_CONFIG["database"]}: connection failed. {error}")
