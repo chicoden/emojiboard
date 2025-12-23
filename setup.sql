@@ -1,5 +1,5 @@
-CREATE DATABASE "emo-db";
-USE "emo-db";
+CREATE DATABASE emo_db;
+USE emo_db;
 
 CREATE TABLE guilds (
     guild_id BIGINT UNSIGNED,
@@ -19,4 +19,4 @@ CREATE TABLE emoji (
     primary key (emoji_index)
 );
 
-SELECT table_name FROM information_schema.tables WHERE table_schema = "emo-db";
+SELECT table_name FROM information_schema.tables WHERE table_schema = "emo_db";
