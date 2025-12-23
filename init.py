@@ -8,7 +8,7 @@ async def main():
         print("initializing...")
         async with await mysql.connector.aio.connect(**EMO_DB_CONFIG) as db:
             async with await db.cursor() as cursor:
-                #cursor.execute('''
+                #await cursor.execute('''
                 #''')
                 pass
         print("initialization complete.")
@@ -20,7 +20,7 @@ async def main():
         print("verifying initialization...")
         async with await mysql.connector.aio.connect(**EMO_DB_CONFIG) as db:
             async with await db.cursor() as cursor:
-                cursor.execute('''
+                await cursor.execute('''
                     SELECT table_name FROM information_schema.tables WHERE table_schema = %s;
                 ''', (
                     EMO_DB_CONFIG["database"],
