@@ -10,7 +10,8 @@ CREATE TABLE guilds (
 
 CREATE TABLE tracked_emoji (
     guild_id BIGINT UNSIGNED,
-    emoji_index BIGINT UNSIGNED
+    emoji_index BIGINT UNSIGNED,
+    emoji_weight INT
 );
 
 CREATE TABLE emoji (

@@ -9,8 +9,6 @@ import re
 from typing import *
 from config import *
 
-type EmojiDescriptor = Tuple[bool, bool, int, str]
-
 log = logging.getLogger("emojiboard")
 log.setLevel(logging.DEBUG)
 formatter = logging.Formatter(
@@ -29,12 +27,46 @@ class BotEmoji:
     KEKW = "<:kekw:1311365036660363378>"
     KEKKED_SADGE = "<:kekked_sadge:1439802912745197670>"
 
-async def post_leaderboard(guild: discord.Guild, tracked_emoji: List[EmojiDescriptor], start_timestamp: datetime.datetime):
-    log.debug(f"posting leaderboard in guild {guild.name}")
-    log.debug(repr(tracked_emoji))
-    channel = discord.utils.get(guild.text_channels, name="general")
-    message = await channel.fetch_message(1452939715761143890)
-    log.debug(repr(message.reactions))
+class EmojiRegistrationRecord:
+    is_default:   bool
+    is_animated:  bool
+    emoji_id:     int
+    emoji_name:   str
+    emoji_weight: int
+
+    def __init__(self, row: Tuple[int, int, int, str, int]):
+        self.is_default   = bool(row[0])
+        self.is_animated  = bool(row[1])
+        self.emoji_id     = row[2]
+        self.emoji_name   = row[3]
+        self.emoji_weight = row[4]
+
+    def __repr__(self):
+        return f"<EmojiRegistrationRecord"             \
+            f" is_default={repr(self.is_default)}"     \
+            f" is_animated={repr(self.is_animated)}"   \
+            f" emoji_id={repr(self.emoji_id)}"         \
+            f" emoji_name={repr(self.emoji_name)}"     \
+            f" emoji_weight={repr(self.emoji_weight)}" \
+        f">"
+
+async def post_leaderboard(guild: discord.Guild, tracked_emoji: List[EmojiRegistrationRecord], start_timestamp: datetime.datetime):
+    self_member = guild.get_member(client.user.id)
+
+    leaderboard_channel = discord.utils.get(guild.text_channels, name="emojiboard")
+    if leaderboard_channel is None:
+        log.info(f"creating leaderboard channel for guild {guild.name}")
+        leaderboard_channel = await guild.create_text_channel(name="emojiboard", topic="Emoji leaderboard channel")
+
+    for channel in guild.text_channels:
+        channel_permissions = channel.permissions_for(self_member)
+        if not channel_permissions.read_message_history:
+            continue # avert our eyes
+
+        async for message in channel.history(after=start_timestamp):
+            score = 0
+            for reaction in message.reactions:
+                print(repr(reaction))
 
 @tree.command(name="saykekw", description="Say kekw")
 async def say_kekw(interaction: discord.Interaction):
@@ -54,6 +86,7 @@ async def task_post_leaderboards():
     try:
         async with await mysql.connector.aio.connect(**EMO_DB_CONFIG) as db:
             async with asyncio.TaskGroup() as per_guild:
+                log.info("creating leaderboard tasks")
                 start_timestamp = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=24)
                 async with (
                     await db.cursor() as guild_cursor,
@@ -61,19 +94,23 @@ async def task_post_leaderboards():
                 ):
                     await guild_cursor.execute("SELECT guild_id, is_tracked FROM guilds")
                     for guild_id, is_tracked in await guild_cursor.fetchall():
+                        log.info(f"guild id {guild_id}, is tracked {is_tracked}")
+
                         guild = client.get_guild(guild_id)
                         if guild is None:
                             # purge from database?
+                            log.debug(f"guild id {guild_id} not found in client guilds")
                             continue
 
                         if is_tracked:
                             await emoji_cursor.execute('''
-                                SELECT emoji.is_default, emoji.is_animated, emoji.emoji_id, emoji.emoji_name FROM emoji
+                                SELECT emoji.is_default, emoji.is_animated, emoji.emoji_id, emoji.emoji_name, tracked_emoji.emoji_weight FROM emoji
                                     INNER JOIN tracked_emoji ON tracked_emoji.emoji_index = emoji.emoji_index
                                     WHERE tracked_emoji.guild_id = %s;
                             ''', (guild_id,))
-                            tracked_emoji = await emoji_cursor.fetchall()
+                            tracked_emoji = [EmojiRegistrationRecord(row) for row in await emoji_cursor.fetchall()]
                             per_guild.create_task(post_leaderboard(guild, tracked_emoji, start_timestamp))
+                            log.info(f"leaderboard task created for guild {guild.name}")
 
     except mysql.connector.errors.Error as error:
         log.error(f"{EMO_DB_CONFIG["database"]}: connection failed. {error}")
