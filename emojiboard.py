@@ -53,13 +53,7 @@ async def task_post_leaderboards():
                     await db.cursor() as guild_cursor,
                     await db.cursor() as emoji_cursor
                 ):
-                    await guild_cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS guilds (
-                            guild_id BIGINT UNSIGNED,
-                            is_tracked BIT
-                        );
-                        SELECT guild_id, is_tracked FROM guilds;
-                    ''')
+                    await guild_cursor.execute("SELECT guild_id, is_tracked FROM guilds")
                     async for _, (guild_id, is_tracked) in guild_cursor.fetchsets():
                         guild = client.get_guild(guild_id)
                         if guild is None:
@@ -67,15 +61,10 @@ async def task_post_leaderboards():
                             continue
 
                         if is_tracked:
-                            await emoji_cursor.execute(f'''
-                                CREATE TABLE IF NOT EXISTS registered_emoji (
-                                    guild_id BIGINT UNSIGNED,
-                                    emoji_id BIGINT UNSIGNED
-                                );
-                                SELECT emoji_id FROM registered_emoji WHERE guild_id = {guild_id};
-                            ''')
-                            tracked_emoji = await emoji_cursor.fetchall()
-                            per_guild.create_task(post_leaderboard(guild, tracked_emoji, start_timestamp))
+                            #await emoji_cursor.execute("SELECT emoji_id FROM tracked_emoji WHERE guild_id = %i", (guild_id,))
+                            #tracked_emoji = await emoji_cursor.fetchall()
+                            #per_guild.create_task(post_leaderboard(guild, tracked_emoji, start_timestamp))
+                            pass
 
     except mysql.connector.errors.Error as error:
         log.error(f"{EMO_DB_CONFIG["database"]}: connection failed. {error}")
@@ -112,8 +101,8 @@ async def task_post_leaderboards():
 
 @client.event
 async def on_ready():
-    if not task_post_leaderboards.is_running(): # avoid starting an already running task (yes, this can happen, and it raises an exception)
-        task_post_leaderboards.start()
+    #if not task_post_leaderboards.is_running(): # avoid starting an already running task (yes, this can happen, and it raises an exception)
+    #    task_post_leaderboards.start()
 
     log.info("ready")
 
