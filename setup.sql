@@ -1,4 +1,6 @@
-CREATE DATABASE emo_db;
+CREATE DATABASE emo_db
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
 USE emo_db;
 
 CREATE TABLE guilds (
@@ -14,9 +16,10 @@ CREATE TABLE tracked_emoji (
 CREATE TABLE emoji (
     emoji_index BIGINT UNSIGNED AUTO_INCREMENT,
     is_default BIT,
+    is_animated BIT,
     emoji_id BIGINT UNSIGNED,
     emoji_name VARCHAR(32),
-    primary key (emoji_index)
+    PRIMARY KEY (emoji_index)
 );
 
 SELECT table_name FROM information_schema.tables WHERE table_schema = "emo_db";

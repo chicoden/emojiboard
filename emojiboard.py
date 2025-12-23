@@ -9,7 +9,7 @@ import re
 from typing import *
 from config import *
 
-type EmojiDescriptor = Tuple[bool, int, str]
+type EmojiDescriptor = Tuple[bool, bool, int, str]
 
 log = logging.getLogger("emojiboard")
 log.setLevel(logging.DEBUG)
@@ -31,7 +31,10 @@ class BotEmoji:
 
 async def post_leaderboard(guild: discord.Guild, tracked_emoji: List[EmojiDescriptor], start_timestamp: datetime.datetime):
     log.debug(f"posting leaderboard in guild {guild.name}")
-    log.debug(", ".join(f"{{ is_default: {is_default}, emoji_id: {emoji_id}, emoji_name: {emoji_name} }}" for is_default, emoji_id, emoji_name in tracked_emoji))
+    log.debug(repr(tracked_emoji))
+    channel = discord.utils.get(guild.text_channels, name="general")
+    message = await channel.fetch_message(1452939715761143890)
+    log.debug(repr(message.reactions))
 
 @tree.command(name="saykekw", description="Say kekw")
 async def say_kekw(interaction: discord.Interaction):
@@ -65,7 +68,7 @@ async def task_post_leaderboards():
 
                         if is_tracked:
                             await emoji_cursor.execute('''
-                                SELECT emoji.is_default, emoji.emoji_id, emoji.emoji_name FROM emoji
+                                SELECT emoji.is_default, emoji.is_animated, emoji.emoji_id, emoji.emoji_name FROM emoji
                                     INNER JOIN tracked_emoji ON tracked_emoji.emoji_index = emoji.emoji_index
                                     WHERE tracked_emoji.guild_id = %s;
                             ''', (guild_id,))
