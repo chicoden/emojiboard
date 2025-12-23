@@ -50,6 +50,18 @@ class EmojiRegistrationRecord:
             f" emoji_weight={repr(self.emoji_weight)}" \
         ">"
 
+    def matches(self, reaction: discord.Reaction) -> bool:
+        emoji = reaction.emoji
+        match emoji:
+            case discord.Emoji() | discord.PartialEmoji():
+                return not self.is_default and self.emoji_id == emoji.id
+
+            case str():
+                return self.is_default and self.emoji_name == emoji
+
+            case _:
+                return False
+
 async def post_leaderboard(guild: discord.Guild, tracked_emoji: List[EmojiRegistrationRecord], start_timestamp: datetime.datetime):
     self_member = guild.get_member(client.user.id)
 
@@ -58,6 +70,9 @@ async def post_leaderboard(guild: discord.Guild, tracked_emoji: List[EmojiRegist
         log.info(f"creating leaderboard channel for guild {guild.name}")
         leaderboard_channel = await guild.create_text_channel(name="emojiboard", topic="Emoji leaderboard channel")
 
+    log.info(f"creating leaderboard for guild {guild.name}")
+    winning_message: Optional[discord.Message] = None
+    winning_score = 0
     for channel in guild.text_channels:
         channel_permissions = channel.permissions_for(self_member)
         if not channel_permissions.read_message_history:
@@ -66,7 +81,21 @@ async def post_leaderboard(guild: discord.Guild, tracked_emoji: List[EmojiRegist
         async for message in channel.history(after=start_timestamp):
             score = 0
             for reaction in message.reactions:
-                print(repr(reaction))
+                for record in tracked_emoji:
+                    if record.matches(reaction):
+                        score += reaction.count * record.emoji_weight
+                        break
+
+            if score > 0 and score >= winning_score:
+                winning_message = message
+                winning_score = score
+
+    if winning_message is not None:
+        log.info(repr(winning_message))###
+        log.info(repr(winning_message.reactions))###
+
+    else:
+        pass
 
 @tree.command(name="saykekw", description="Say kekw")
 async def say_kekw(interaction: discord.Interaction):
