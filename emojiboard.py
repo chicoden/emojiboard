@@ -6,6 +6,7 @@ import asyncio
 import datetime
 import logging
 import re
+import typing
 from config import *
 
 log = logging.getLogger("emojiboard")
@@ -26,6 +27,9 @@ class BotEmoji:
     KEKW = "<:kekw:1311365036660363378>"
     KEKKED_SADGE = "<:kekked_sadge:1439802912745197670>"
 
+async def post_leaderboard(guild: discord.Guild, tracked_emoji: typing.Any, start_timestamp: datetime.datetime):
+    log.debug(f"posting leaderboard to guild {guild.name}")
+
 @tree.command(name="saykekw", description="Say kekw")
 async def say_kekw(interaction: discord.Interaction):
     async with interaction.channel.typing():
@@ -40,10 +44,38 @@ async def mask_vowels(interaction: discord.Interaction, message: str):
     )
 
 @tasks.loop(hours=24)
-async def task_post_leaderboard():
+async def task_post_leaderboards():
     try:
         async with await mysql.connector.aio.connect(**EMO_DB_CONFIG) as db:
-            log.debug("connected!")
+            async with asyncio.TaskGroup() as per_guild:
+                start_timestamp = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=24)
+                async with (
+                    await db.cursor() as guild_cursor,
+                    await db.cursor() as emoji_cursor
+                ):
+                    await guild_cursor.execute('''
+                        CREATE TABLE IF NOT EXISTS guilds (
+                            guild_id BIGINT UNSIGNED,
+                            is_tracked BIT
+                        );
+                        SELECT guild_id, is_tracked FROM guilds;
+                    ''')
+                    async for _, (guild_id, is_tracked) in guild_cursor.fetchsets():
+                        guild = client.get_guild(guild_id)
+                        if guild is None:
+                            # purge from database?
+                            continue
+
+                        if is_tracked:
+                            await emoji_cursor.execute(f'''
+                                CREATE TABLE IF NOT EXISTS registered_emoji (
+                                    guild_id BIGINT UNSIGNED,
+                                    emoji_id BIGINT UNSIGNED
+                                );
+                                SELECT emoji_id FROM registered_emoji WHERE guild_id = {guild_id};
+                            ''')
+                            tracked_emoji = await emoji_cursor.fetchall()
+                            per_guild.create_task(post_leaderboard(guild, tracked_emoji, start_timestamp))
 
     except mysql.connector.errors.Error as error:
         log.error(f"{EMO_DB_CONFIG["database"]}: connection failed. {error}")
@@ -80,8 +112,8 @@ async def task_post_leaderboard():
 
 @client.event
 async def on_ready():
-    if not task_post_leaderboard.is_running(): # avoid starting an already running task (yes, this can happen, and it raises an exception)
-        task_post_leaderboard.start()
+    if not task_post_leaderboards.is_running(): # avoid starting an already running task (yes, this can happen, and it raises an exception)
+        task_post_leaderboards.start()
 
     log.info("ready")
 
