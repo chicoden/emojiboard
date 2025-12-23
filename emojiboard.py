@@ -31,6 +31,7 @@ class BotEmoji:
 
 async def post_leaderboard(guild: discord.Guild, tracked_emoji: List[EmojiDescriptor], start_timestamp: datetime.datetime):
     log.debug(f"posting leaderboard in guild {guild.name}")
+    log.debug(", ".join(f"{{ is_default: {is_default}, emoji_id: {emoji_id}, emoji_name: {emoji_name} }}" for is_default, emoji_id, emoji_name in tracked_emoji))
 
 @tree.command(name="saykekw", description="Say kekw")
 async def say_kekw(interaction: discord.Interaction):
@@ -66,7 +67,7 @@ async def task_post_leaderboards():
                             await emoji_cursor.execute('''
                                 SELECT emoji.is_default, emoji.emoji_id, emoji.emoji_name FROM emoji
                                     INNER JOIN tracked_emoji ON tracked_emoji.emoji_index = emoji.emoji_index
-                                    WHERE tracked_emoji.guild_id = %i;
+                                    WHERE tracked_emoji.guild_id = %s;
                             ''', (guild_id,))
                             tracked_emoji = await emoji_cursor.fetchall()
                             per_guild.create_task(post_leaderboard(guild, tracked_emoji, start_timestamp))
@@ -106,8 +107,8 @@ async def task_post_leaderboards():
 
 @client.event
 async def on_ready():
-    #if not task_post_leaderboards.is_running(): # avoid starting an already running task (yes, this can happen, and it raises an exception)
-    #    task_post_leaderboards.start()
+    if not task_post_leaderboards.is_running(): # avoid starting an already running task (yes, this can happen, and it raises an exception)
+        task_post_leaderboards.start()
 
     log.info("ready")
 
