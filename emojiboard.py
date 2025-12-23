@@ -50,8 +50,7 @@ class EmojiRegistrationRecord:
             f" emoji_weight={repr(self.emoji_weight)}" \
         ">"
 
-    def matches(self, reaction: discord.Reaction) -> bool:
-        emoji = reaction.emoji
+    def matches(self, emoji: discord.PartialEmoji | discord.Emoji | str) -> bool:
         match emoji:
             case discord.Emoji() | discord.PartialEmoji():
                 return not self.is_default and self.emoji_id == emoji.id
@@ -71,8 +70,9 @@ async def post_leaderboard(guild: discord.Guild, tracked_emoji: List[EmojiRegist
         leaderboard_channel = await guild.create_text_channel(name="emojiboard", topic="Emoji leaderboard channel")
 
     log.info(f"creating leaderboard for guild {guild.name}")
-    winning_message: Optional[discord.Message] = None
-    winning_score = 0
+    winner_message: Optional[discord.Message] = None
+    winner_relevant_reactions: List[discord.Reaction] = []
+    winner_score = 0
     for channel in guild.text_channels:
         channel_permissions = channel.permissions_for(self_member)
         if not channel_permissions.read_message_history:
@@ -80,22 +80,26 @@ async def post_leaderboard(guild: discord.Guild, tracked_emoji: List[EmojiRegist
 
         async for message in channel.history(after=start_timestamp):
             score = 0
+            relevant_reactions: List[discord.Reaction] = []
             for reaction in message.reactions:
                 for record in tracked_emoji:
-                    if record.matches(reaction):
+                    if record.matches(reaction.emoji):
                         score += reaction.count * record.emoji_weight
+                        relevant_reactions.append(reaction)
                         break
 
-            if score > 0 and score >= winning_score:
-                winning_message = message
-                winning_score = score
+            if score > 0 and score >= winner_score:
+                winner_message = message
+                winner_relevant_reactions = relevant_reactions
+                winner_score = score
 
-    if winning_message is not None:
-        log.info(repr(winning_message))###
-        log.info(repr(winning_message.reactions))###
+    if winner_message is not None:
+        relevant_reaction_counts = ", ".join(f"{reaction.count}{reaction.emoji}" for reaction in winner_relevant_reactions)
+        await leaderboard_channel.send(f"{winner_message.author.mention} wins with {relevant_reaction_counts}")
+        await winner_message.forward(leaderboard_channel)
 
     else:
-        pass
+        await leaderboard_channel.send(f"No winners {BotEmoji.KEKKED_SADGE}")
 
 @tree.command(name="saykekw", description="Say kekw")
 async def say_kekw(interaction: discord.Interaction):
