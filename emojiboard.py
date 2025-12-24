@@ -101,7 +101,7 @@ async def post_leaderboard(guild: discord.Guild, tracked_emoji: List[EmojiRegist
     else:
         await leaderboard_channel.send(f"No winners {BotEmoji.KEKKED_SADGE}")
 
-@tree.command(name="saykekw", description="Say kekw")
+@tree.command(name="say_kekw", description="Say kekw")
 async def say_kekw(interaction: discord.Interaction):
     async with interaction.channel.typing():
         await asyncio.sleep(2)
@@ -114,13 +114,42 @@ async def mask_vowels(interaction: discord.Interaction, message: str):
         vowels.sub(lambda match: f"||{match.group()}||", message)
     )
 
+@tree.command(name="set_tracking", description="Set whether or not this server should be tracked")
+async def set_tracking(interaction: discord.Interaction, tracking: bool):
+    try:
+        async with await mysql.connector.aio.connect(**EMO_DB_CONFIG) as db:
+            log.info(f"{EMO_DB_CONFIG["database"]}: connected")
+            log.info(f"setting tracking for guild {interaction.guild.name}")
+
+            async with await db.cursor() as cursor:
+                await cursor.execute('''
+                    INSERT INTO guilds VALUES (%(guild_id)s, %(is_tracked)s)
+                        ON DUPLICATE KEY UPDATE is_tracked = %(is_tracked)s;
+                ''', {
+                    "guild_id": interaction.guild.id,
+                    "is_tracked": int(tracking)
+                })
+
+            await db.commit()
+            log.info(f"set tracking for guild {interaction.guild.name} to {tracking}")
+            await interaction.response.send_message(f"set tracking to {tracking}")
+
+    except mysql.connector.errors.Error as error:
+        log.error(f"{EMO_DB_CONFIG["database"]}: connection failed. {error}")
+        await interaction.response.send_message("failed to connect to database, tracking status not set")
+
+@tree.command(name="update_tracked_emoji", description="Creates message with currently tracked emoji as reactions so that they can be added or removed")
+async def update_tracked_emoji(interaction: discord.Interaction):
+    pass
+
 @tasks.loop(hours=24)
 async def task_post_leaderboards():
     try:
         async with await mysql.connector.aio.connect(**EMO_DB_CONFIG) as db:
             log.info(f"{EMO_DB_CONFIG["database"]}: connected")
+            log.info("creating leaderboard tasks")
+
             async with asyncio.TaskGroup() as per_guild:
-                log.info("creating leaderboard tasks")
                 start_timestamp = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=24)
                 async with (
                     await db.cursor() as guild_cursor,
@@ -146,14 +175,17 @@ async def task_post_leaderboards():
                             per_guild.create_task(post_leaderboard(guild, tracked_emoji, start_timestamp))
                             log.info(f"leaderboard task created for guild {guild.name}")
 
+            log.info("leaderboard tasks complete")
+
     except mysql.connector.errors.Error as error:
         log.error(f"{EMO_DB_CONFIG["database"]}: connection failed. {error}")
 
 @client.event
 async def on_ready():
+    await tree.sync()
+    log.info("ready")
+
     if not task_post_leaderboards.is_running(): # avoid starting an already running task (yes, this can happen, and it raises an exception)
         task_post_leaderboards.start()
-
-    log.info("ready")
 
 client.run(DISCORD_BOT_TOKEN)
